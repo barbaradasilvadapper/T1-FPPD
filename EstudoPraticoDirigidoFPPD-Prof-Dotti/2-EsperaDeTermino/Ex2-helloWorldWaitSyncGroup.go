@@ -7,6 +7,13 @@
 // abstracoes da biblioteca da linguagem - todas elas podem ser reduzidas ao uso de canais.
 // voce pode usar esta funcionalidade se desejar.
 
+// obs: wg é uma variável do tipo sync.WaitGroup em Go, que serve para sincronizar
+// a execução de várias goroutines, permitindo que o programa espere até que todas 
+// terminem antes de continuar. 
+// chama wg.Add(n) para indicar quantas goroutines vai esperar
+// cada goroutine chama wg.Done() ao terminar
+// main chama wg.Wait() para aguardar todas finalizarem
+
 package main
 
 import (

@@ -1,9 +1,16 @@
 // por Fernando Dotti - fldotti.github.io - PUCRS - Escola Politécnica
+
 // EXERCÍCIO:  dado o programa abaixo
-//    1) quantos processos concorrentes são gerados ?
-//    2) execute e observe: que se pode supor sobre a velocidade relativa dos mesmos ?
+
+//    1) quantos processos concorrentes são gerados? 
+//    41 processos concorrentes (main + 40 goroutines)
+
+//	  2) execute e observe: que se pode supor sobre a velocidade relativa dos mesmos? 
+// 	  Podemos supor que a velocidade de execução é independente entre os processos e geram impressões intercaladas,
+//    ou seja, não há garantia de ordem ou velocidade igual entre eles.
+
 // OBSERVACAO:o sleep no método main serve para este nao acabar, o que acabaria todos processos em execucao.
-//     mais adiante veremos outras formas de sincronizar isto
+// mais adiante veremos outras formas de sincronizar isto
 
 package main
 

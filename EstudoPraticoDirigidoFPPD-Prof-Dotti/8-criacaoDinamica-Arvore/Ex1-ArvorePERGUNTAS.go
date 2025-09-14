@@ -5,17 +5,19 @@
 //        func soma(r *Nodo) int {...}
 //   1.b) uma operação concorrente que soma todos elementos da arvore
 //   [OS ACIMA ESTAO RESOLVIDOS]
+
 //   2.a) a operação de busca de um elemento v, dizendo true se encontrou v na árvore, ou falso
 //        func busca(r* Nodo, v int) bool {}...}
 //   2.b) a operação de busca concorrente de um elemento, que informa imediatamente
 //        por um canal se encontrou o elemento (sem acabar a busca), ou informa
 //        que nao encontrou ao final da busca
+
 //   3.a) a operação que escreve todos pares em um canal de saidaPares e
 //        todos impares em um canal saidaImpares, e ao final avisa que acabou em um canal fin
 //        func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}){...}
 //   3.b) a versao concorrente da operação acima, ou seja, os varios nodos sao testados
 //        concorrentemente se pares ou impares, escrevendo o valor no canal adequado
-//
+
 //  ABAIXO: RESPOSTAS A QUESTOES 1a e b
 //  APRESENTE A SOLUÇÃO PARA AS DEMAIS QUESTÕES
 
@@ -71,14 +73,127 @@ func somaConcCh(r *Nodo, s chan int) {
 // -------- BUSCA ----------
 // busca sequencial recursiva
 // func busca(r *Nodo, val int) bool { }
+func busca(r *Nodo, val int) bool {
+	if r != nil {
+		if r.v == val {
+			return true
+		}
+		return busca(r.e, val) || busca(r.d, val)
+	}
+	return false
+}
+
+
 
 // busca concorrente recursiva
 // func buscaConc(r *Nodo, val int, ret chan bool) { }
+func buscaConc(r *Nodo, val int) bool {
+	ret := make(chan bool)
+    go buscaConcCh(r, val, ret)
+    return <-ret
+}
+func buscaConcCh(r *Nodo, val int, ret chan bool) {
+	if r == nil {
+        ret <- false
+        return
+    }
+	if r.v == val {
+		ret <- true
+		return
+	}
+	if r != nil {
+		if r.v == val {
+			ret <- true
+			return
+		}
+
+		// cria dois canais, um pra cada filho
+		s1 := make(chan bool)
+		s2 := make(chan bool)
+
+		//chama a busca para esquerda e direita
+		go buscaConcCh(r.e, val, s1)
+		go buscaConcCh(r.d, val, s2)
+
+		// combina os resultados
+		esq := <-s1
+		dir := <-s2
+
+		ret <- (esq || dir)
+
+	} else {
+		ret <- false
+	}
+}
+
+
 
 // -------- SAIDAS PAR E IMPAR --------
-// Sequencial
+// sequencial 
+// func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) { }
+func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) {
+	if r != nil {
+		retornaParImparSaida(r, saidaP, saidaI)
+	}
+	// sinaliza que terminou a operação
+	fin <- struct{}{}
+}
 
-//func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) { }
+func retornaParImparSaida(r *Nodo, saidaP chan int, saidaI chan int) {
+	if r != nil {
+		retornaParImparSaida(r.e, saidaP, saidaI)
+		if r.v%2 == 0 {
+			saidaP <- r.v
+		} else {
+			saidaI <- r.v
+		}
+		retornaParImparSaida(r.d, saidaP, saidaI)
+	}
+	if r == nil {
+		return
+	}
+}
+
+
+// concorrente recursiva
+// func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) { }
+func retornaParImparConc(r *Nodo, saidaP, saidaI chan int, fin chan struct{}) {
+    retornaParImparConcCh(r, saidaP, saidaI, fin) // chama diretamente, sem go
+}
+
+func retornaParImparConcCh(r *Nodo, saidaP, saidaI chan int, fin chan struct{}) {
+    if r == nil {
+        fin <- struct{}{}
+        return
+    }
+
+    finE := make(chan struct{})
+    finD := make(chan struct{})
+
+    // chama os filhos concorrentemente
+    go retornaParImparConcCh(r.e, saidaP, saidaI, finE)
+    go retornaParImparConcCh(r.d, saidaP, saidaI, finD)
+
+    // processa o nodo atual
+    if r.v%2 == 0 {
+        saidaP <- r.v
+    } else {
+        saidaI <- r.v
+    }
+
+    // espera os filhos terminarem
+    <-finE
+    <-finD
+
+    // sinaliza que terminou
+    fin <- struct{}{}
+}
+
+
+
+
+
+
 
 // ---------   agora vamos criar a arvore e usar as funcoes acima
 
@@ -99,6 +214,7 @@ func main() {
 				e: &Nodo{v: 17, e: nil, d: nil},
 				d: &Nodo{v: 19, e: nil, d: nil}}}}
 
+	//sequencial
 	saidaP := make(chan int)
 	saidaI := make(chan int)
 	fin := make(chan struct{})
@@ -121,6 +237,27 @@ func main() {
 		}
 	}
 
+	// concorrente
+	saidaPConc := make(chan int)
+	saidaIConc := make(chan int)
+	finConc := make(chan struct{})
+
+	fmt.Println()
+	fmt.Println("Valores na árvore (concorrente): ")
+	go retornaParImparConc(root, saidaPConc, saidaIConc, finConc)
+	fim2 := false
+	for !fim2 {
+		select {
+		case par := <-saidaPConc:
+			fmt.Println("Par:", par)
+		case impar := <-saidaIConc:
+			fmt.Println("Impar:", impar)
+		case <-finConc:
+			fim2 = true
+		}
+	}
+
+
 	fmt.Println()
 	fmt.Print("Valores na árvore: ")
 	caminhaERD(root)
@@ -134,6 +271,6 @@ func main() {
 	fmt.Println("Busca 99: ", busca(root, 99))
 
 	fmt.Println()
-	fmt.Println("BuscaC 17: ", buscaC(root, 17))
-	fmt.Println("BuscaC 99: ", buscaC(root, 99))
+	fmt.Println("BuscaConc 17: ", buscaConc(root, 17))
+	fmt.Println("BuscaConc 99: ", buscaConc(root, 99))
 }
