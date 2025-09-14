@@ -44,7 +44,7 @@ func caminhaERD(r *Nodo) {
 func soma(r *Nodo) int {
 	if r != nil {
 		//fmt.Print(r.v, ", ")
-		return r.v + soma(r.e) + soma(r.d)
+		return r.v + soma(r.e) + soma(r.d) 
 	}
 	return 0
 }
@@ -53,15 +53,23 @@ func soma(r *Nodo) int {
 // internamente dispara recursao com somaConcCh
 // usando canais
 func somaConc(r *Nodo) int {
+	//um canal para realizar a soma concorrente
 	s := make(chan int)
+	//chama a funca concorrente
 	go somaConcCh(r, s)
+	//retona o canal escrito nela
 	return <-s
 }
 func somaConcCh(r *Nodo, s chan int) {
+	//se o nodo recebido for difernte de vazio 
 	if r != nil {
+		//cria outro canal 
 		s1 := make(chan int)
+		//pegar a soma de esquerda como o novo canal
 		go somaConcCh(r.e, s1)
+		//pega a soma do nodo direito com o novo canal
 		go somaConcCh(r.d, s1)
+		//faz a escrita, porque soma o canal s1 duas vezes 
 		s <- (r.v + <-s1 + <-s1)
 	} else {
 		s <- 0
@@ -70,15 +78,108 @@ func somaConcCh(r *Nodo, s chan int) {
 
 // -------- BUSCA ----------
 // busca sequencial recursiva
-// func busca(r *Nodo, val int) bool { }
+func busca(r *Nodo, val int) bool {
+	if r == nil {
+		return false
+	}
+	if r.v == val {
+		return true
+	}
+	return busca(r.e, val) || busca(r.d, val)
+}
 
 // busca concorrente recursiva
-// func buscaConc(r *Nodo, val int, ret chan bool) { }
+func buscaConc(r *Nodo, val int) bool{ 
+	//um canal para realizar a soma concorrente
+	ret := make(chan bool)
+	//chama a funca concorrente
+	go buscaConcCh(r, val, ret)
+	//retona o canal escrito nela
+	return <-ret
+}
+
+
+func buscaConcCh(r *Nodo, val int, ret chan bool) {
+	if r != nil {
+		if r.v == val {
+			ret <- true
+		} else {
+			ret1 := make(chan bool)
+			go buscaConcCh(r.e, val, ret1)
+			go buscaConcCh(r.d, val, ret1)
+			ret <- (<-ret1 || <-ret1)
+		}
+	}
+	ret <- false
+}
+
 
 // -------- SAIDAS PAR E IMPAR --------
 // Sequencial
+//3a
+func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) {
+	if r != nil {
+		retornaParImparSaida(r, saidaP, saidaI)
+	}
+	// sinaliza que terminou a operação
+	fin <- struct{}{}
+}
 
-//func retornaParImpar(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}) { }
+func retornaParImparSaida(r *Nodo, saidaP chan int, saidaI chan int) {
+	if r != nil {
+		retornaParImparSaida(r.e, saidaP, saidaI)
+		if r.v%2 == 0 {
+			saidaP <- r.v
+		} else {
+			saidaI <- r.v
+		}
+		retornaParImparSaida(r.d, saidaP, saidaI)
+	}
+	if r == nil {
+		return
+	}
+}
+
+
+//3b
+func retornaParImparConc(r *Nodo, saidaP chan int, saidaI chan int, fin chan struct{}){
+	finalizado := make(chan bool)
+
+	go func() {
+		retornaParImparConcCh(r, saidaP, saidaI, finalizado)
+		finalizado <- true
+	}()
+	<-finalizado
+	fin <- struct{}{}
+
+}
+
+func retornaParImparConcCh(r *Nodo, saidaP chan int, saidaI chan int, finalizado chan bool) {
+	if r != nil {
+		finalizado1 := make(chan bool)
+		finalizado2 := make(chan bool)
+
+		go func() {
+			retornaParImparConcCh(r.e, saidaP, saidaI, finalizado1)
+			finalizado1 <- true
+		}()
+		go func() {
+			retornaParImparConcCh(r.d, saidaP, saidaI, finalizado2)
+			finalizado2 <- true
+		}()
+
+		if r.v%2 == 0 {
+			saidaP <- r.v
+		} else {
+			saidaI <- r.v
+		}
+		<-finalizado1
+		<-finalizado2
+	}
+	finalizado <- true
+}
+
+
 
 // ---------   agora vamos criar a arvore e usar as funcoes acima
 
@@ -134,6 +235,6 @@ func main() {
 	fmt.Println("Busca 99: ", busca(root, 99))
 
 	fmt.Println()
-	fmt.Println("BuscaC 17: ", buscaC(root, 17))
-	fmt.Println("BuscaC 99: ", buscaC(root, 99))
+	fmt.Println("BuscaC 17: ", buscaConc(root, 17))
+	fmt.Println("BuscaC 99: ", buscaConc(root, 99))
 }
