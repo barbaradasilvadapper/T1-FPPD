@@ -72,7 +72,7 @@ func servidorConc(in chan Request) {
 
 // ------------------------------------
 // servidor com limite de 10 clientes concorrentemente
-func servidorConcLim10(in chan Request, limite int) {
+func servidorConcLim(in chan Request, limite int) {
 	cont := make(chan struct{}, limite) // canal bufferizado que contada as vagas disponiveis
 
 	var j int = 0
@@ -100,7 +100,7 @@ func main() {
 	serv_chan := make(chan Request) // CANAL POR ONDE SERVIDOR RECEBE PEDIDOS
 	//go servidorConc(serv_chan)      // LANÇA PROCESSO SERVIDOR
 
-	go servidorConcLim10(serv_chan, Pool) // limite de 10 clientes simultâneos
+	go servidorConcLim(serv_chan, Pool) // limite de 10 clientes simultâneos
 	for i := 0; i < NCL; i++ {      // LANÇA DIVERSOS CLIENTES
 		go cliente(i, serv_chan)
 	}
