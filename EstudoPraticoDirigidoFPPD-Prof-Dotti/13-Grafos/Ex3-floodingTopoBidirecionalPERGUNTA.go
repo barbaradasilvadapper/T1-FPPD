@@ -16,11 +16,18 @@
 //
 // EXERCÍCIO:
 //          1) veja abaixo como a solucao acima descrita foi implementada.   rode e experimente.
+
 //          2) aumente o numero de fontes gerando mensagens.   Use a funcao carga.
 //             Faca dois ou tres nodos gerarem mensagens concorrentemente e veja se funciona.
+//	   		   funcionou, pois a função nodo já está preparada para lidar com envios concorrentes
+
 //          3) Suponha agora que cada nodo que recebe uma mensagem deva mandar uma resposta ao origem
 //             usando o mesmo protocolo de inundacao.
 //             Este sistema suporta ?
+//			   O sistema não suporta esse padrão porque a inundação de respostas gera sobrecarga e pode 
+// 			   travar a rede. Pois, se cada nodo que recebe uma mensagem responde ao origem também por 
+// 			   inundação, cada resposta será novamente propagada por toda a rede, gerando um novo "flood" 
+// 			   para cada mensagem original recebida.
 
 package main
 
@@ -138,6 +145,10 @@ func main() {
 	// carga de mensagens para que sejam "inundadas" na rede
 	// go carga(0, inCh[0])
 	carga(5, inCh[5])
+	//adicionando mais fontes de mensagens
+	go carga(0, inCh[0])
+	go carga(3, inCh[3])
+	go carga(7, inCh[7])
 
 	<-make(chan struct{}) // bloqueia senao nodos acabam
 }

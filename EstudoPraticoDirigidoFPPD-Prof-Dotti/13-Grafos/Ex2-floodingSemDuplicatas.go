@@ -16,7 +16,11 @@
 //       Começe com apenas uma ou duas arestas bi-direcionais.
 //    3) tente rodar o sistema.
 //       o que ocorre?  como voce pode resolver ?
-
+// 	     Ocorre um deadlock, pois as mensagens entram em ciclo infinito entre os nodos
+//	   	 e os canais de entrada (que têm buffer pequeno) ficam cheios, bloqueando as goroutines 
+//       que tentam enviar novas mensagens, e assim todo o sistema trava.
+//       Uma solução possível é aumentar o tamanho do buffer dos canais de entrada para um valor maior,
+//       permitindo que mais mensagens sejam armazenadas antes de bloquear os envios
 package main
 
 import (
@@ -44,6 +48,7 @@ type nodeStruct struct {
 	id               int
 	topo             Topology
 	inCh             inputChan
+	// vai armazerar as mensagens que ja recebeu e repassou
 	received         map[int]Message // repassadas
 	receivedMessages []Message       // destino
 }
@@ -91,19 +96,36 @@ func main() {
 	//  se [i,j]==1, entao o nodo i pode enviar para o nodo j pelo canal j.
 	//  para alterar a topologia basta adicionar 1s.  cada 1 é uma aresta direcional.
 	//  para modelar comunicacao em ambas direcoes entre i e j, entao [i,j] e [j,i] devem ser 1
+	
+	// CÓDIGO ORIGINAL (1)
+	// topo = [N][N]int{
+	// 	// conforme algoritmo na funco "nodo"
+	// 	//  0  1  2  3  4  5  6  7  8  9       aresta de    para
+	// 	{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, // 0           0 -> 1
+	// 	{0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 1           1 -> 2
+	// 	{0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, // 2           2 -> 3
+	// 	{0, 0, 0, 0, 1, 0, 0, 0, 1, 0}, // 3           3 -> 4 e  3 -> 7
+	// 	{0, 0, 0, 0, 0, 1, 0, 0, 0, 1}, // 4           4 -> 5 e  4 -> 9
+	// 	{0, 0, 0, 0, 0, 0, 1, 0, 0, 0}, // 5           5 -> 6
+	// 	{0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, // 6           6 -> 7
+	// 	{0, 0, 0, 0, 0, 0, 0, 0, 1, 0}, // 7           7 -> 8
+	// 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, // 8           8 -> 9
+	// 	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}} // 9
+
+
+	// CÓDIGO MODIFICADO (2) - arestas bi-direcionais
 	topo = [N][N]int{
-		// conforme algoritmo na funco "nodo"
-		//  0  1  2  3  4  5  6  7  8  9       aresta de    para
-		{0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, // 0           0 -> 1
-		{0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 1           1 -> 2
-		{0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, // 2           2 -> 3
-		{0, 0, 0, 0, 1, 0, 0, 0, 1, 0}, // 3           3 -> 4 e  3 -> 7
-		{0, 0, 0, 0, 0, 1, 0, 0, 0, 1}, // 4           4 -> 5 e  4 -> 9
-		{0, 0, 0, 0, 0, 0, 1, 0, 0, 0}, // 5           5 -> 6
-		{0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, // 6           6 -> 7
-		{0, 0, 0, 0, 0, 0, 0, 0, 1, 0}, // 7           7 -> 8
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, // 8           8 -> 9
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}} // 9
+        //  0  1  2  3  4  5  6  7  8  9
+        {0, 1, 0, 0, 0, 0, 0, 0, 0, 0}, // 0 -> 1
+        {1, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 1 -> 0 e 1 -> 2
+        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0}, // 2 -> 3
+        {0, 0, 0, 0, 1, 0, 0, 1, 0, 0}, // 3 -> 4 e 3 -> 7
+        {0, 0, 0, 0, 0, 1, 0, 0, 0, 1}, // 4 -> 5 e 4 -> 9
+        {0, 0, 0, 0, 0, 0, 1, 0, 0, 0}, // 5 -> 6
+        {0, 0, 0, 0, 0, 0, 0, 1, 0, 0}, // 6 -> 7
+        {0, 0, 0, 1, 0, 0, 1, 0, 1, 0}, // 7 -> 3, 7 -> 6, 7 -> 8
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, // 8 -> 9
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}} // 9
 
 	var inCh inputChan // cada nodo i tem um canal de entrada, chamado inCh[i]
 	for i := 0; i < N; i++ {

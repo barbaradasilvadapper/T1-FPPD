@@ -55,16 +55,33 @@ func (n *nodeStruct) broadcast(m Message) { // broadcast(origin int, topo Topolo
 	}
 }
 
+// CÓDIGO ORIGINAL (1)
 //  cada nodo recebe toda matriz de conectividade e os canais de entrada de todos processos
 //  cada nodo le o seu canal de entrada e escreve a mensagem em todos canais de saida
 //  (dele para outros nodos usando a funcao send)
-func (n *nodeStruct) nodo() { //(id int, topo Topology, inCh inputChan) {
-	fmt.Println(n.id, " ativo! ")
-	for {
-		m := <-n.inCh[n.id]                // espera entrada entrada, reage
-		fmt.Println(n.id, " tratando ", m) // avisa
-		n.broadcast(m)                     // repassa m em todas arestas de saida
-	}
+// func (n *nodeStruct) nodo() { //(id int, topo Topology, inCh inputChan) {
+// 	fmt.Println(n.id, " ativo! ")
+// 	for {
+// 		m := <-n.inCh[n.id]                // espera entrada entrada, reage
+// 		fmt.Println(n.id, " tratando ", m) // avisa
+// 		n.broadcast(m)                     // repassa m em todas arestas de saida
+// 	}
+// }
+
+// CÓDIGO MODIFICADO (2)
+func (n *nodeStruct) nodo() {
+    fmt.Println(n.id, " ativo! ") // nodo ativo (inicializado)
+    recebidas := make(map[int]bool) // guarda IDs das mensagens já tratadas (em mapa)
+    for {
+        m := <-n.inCh[n.id] // espera receber uma mentrada no seu canal
+        if !recebidas[m.id] { // se ainda não recebeu essa mensagem (id novo)
+            fmt.Println(n.id, " tratando ", m) // trata a mensagem
+            recebidas[m.id] = true             // marca que já tratou essa mensagem
+            n.broadcast(m)                     // repassa a mensagem para todos os vizinhos
+        } else {
+            fmt.Println(n.id, " descartou duplicata ", m) // se já recebeu, descarta a duplicata
+        }
+    }
 }
 
 // ------------------------------------------------------------------------------------------------
