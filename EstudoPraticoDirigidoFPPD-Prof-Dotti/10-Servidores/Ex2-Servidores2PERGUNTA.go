@@ -4,16 +4,21 @@
 //   considere um servidor que recebe pedidos por um canal (representando uma conexao)
 //   ao receber o pedido, sabe-se através de qual canal (conexao) responder ao cliente.
 //   Abaixo uma solucao sequencial para o servidor.
+
 // Exercicio
 //   deseja-se tratar os clientes concorrentemente, e nao sequencialmente.
 //   como ficaria a solucao ?
 // Veja abaixo a resposta ...
+
 //   quantos clientes podem estar sendo tratados concorrentemente ?
-//
+//	 infintos, pois uma goroutine é criada para cada requisicao recebida, ou seja,
+//   não há limite definido, então todos os clientes podem ser tratados ao mesmo tempo, 
+//   dependendo apenas dos recursos do sistema (CPU/memória).
+
 // Exercicio:
 //   agora suponha que o seu servidor pode estar tratando no maximo 10 clientes concorrentemente.
 //   como voce faria ?
-//
+//   criando um canal bufferizado com capacidade 10
 
 package main
 
@@ -23,7 +28,7 @@ import (
 )
 
 const (
-	NCL  = 100
+	NCL = 100
 	Pool = 10
 )
 
@@ -64,12 +69,38 @@ func servidorConc(in chan Request) {
 	}
 }
 
+
+// ------------------------------------
+// servidor com limite de 10 clientes concorrentemente
+func servidorConcLim10(in chan Request, limite int) {
+	cont := make(chan struct{}, limite) // canal bufferizado que contada as vagas disponiveis
+
+	var j int = 0
+	for {
+		req := <-in
+		j++
+
+		// "adquire" uma vaga do canal
+		// bloqueia se estiver cheio (limite de 10 atingido)
+		cont <- struct{}{}
+
+		// trata a requisição em goroutine
+		go func(id int, r Request) {
+			defer func() { <-cont }() // libera a vaga ao finalizar
+			trataReq(id, r)
+		}(j, req)
+	}
+}
+
+
 // ------------------------------------
 // main
 func main() {
 	fmt.Println("------ Servidores - criacao dinamica -------")
 	serv_chan := make(chan Request) // CANAL POR ONDE SERVIDOR RECEBE PEDIDOS
-	go servidorConc(serv_chan)      // LANÇA PROCESSO SERVIDOR
+	//go servidorConc(serv_chan)      // LANÇA PROCESSO SERVIDOR
+
+	go servidorConcLim10(serv_chan, Pool) // limite de 10 clientes simultâneos
 	for i := 0; i < NCL; i++ {      // LANÇA DIVERSOS CLIENTES
 		go cliente(i, serv_chan)
 	}

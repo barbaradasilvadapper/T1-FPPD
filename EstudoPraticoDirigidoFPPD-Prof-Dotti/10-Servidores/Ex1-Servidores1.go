@@ -48,6 +48,24 @@ func servidorSeq(in chan Request) {
 }
 
 // ------------------------------------
+// servidor concorrente
+// thread de servico calcula a resposta e manda direto pelo canal de retorno informado pelo cliente
+func trataReq(id int, req Request) {
+	fmt.Println("                                 trataReq ", id)
+	req.ch_ret <- req.v * 2
+}
+func servidorConc(in chan Request) {
+	// criamos uma goroutine para cada requisicao recebida
+	// várias requisições podem ser processadas concorrente e simultaneamente.
+	var j int = 0
+	for {
+		j++
+		req := <-in
+		go trataReq(j, req)
+	}
+}
+
+// ------------------------------------
 // main
 func main() {
 	fmt.Println("------ Servidores Sequencial -------")
@@ -56,4 +74,5 @@ func main() {
 		go cliente(i, serv_chan)
 	}
 	servidorSeq(serv_chan)
+	// servidorConc(serv_chan)
 }
