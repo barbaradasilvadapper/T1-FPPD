@@ -38,22 +38,25 @@ func cliente(i int, req chan Request) {
 }
 
 // ------------------------------------
-// servidor sequencial
-func servidorSeq(in chan Request) {
+// servidor concorrente
+func servidorConc(in chan Request) {
 	for {
 		req := <-in
-		fmt.Println("                       trataReq ", req)
-		req.ch_ret <- req.v * 2 // responde  ao cliente
+		// ao receber um pedido, cria um processo para tratar o mesmo
+		go func(r Request) {
+			fmt.Println("                       trataReq ", r)
+			r.ch_ret <- r.v * 2 // responde  ao cliente
+		}(req)
 	}
 }
 
 // ------------------------------------
 // main
 func main() {
-	fmt.Println("------ Servidores Sequencial -------")
+	fmt.Println("------ Servidores Concorrente -------")
 	serv_chan := make(chan Request)
 	for i := 0; i < NCL; i++ {
 		go cliente(i, serv_chan)
 	}
-	servidorSeq(serv_chan)
+	servidorConc(serv_chan)
 }

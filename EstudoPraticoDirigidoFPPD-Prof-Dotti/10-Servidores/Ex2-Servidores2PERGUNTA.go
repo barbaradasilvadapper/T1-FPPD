@@ -47,31 +47,33 @@ func cliente(i int, req chan Request) {
 
 // ------------------------------------
 // servidor
-// thread de servico calcula a resposta e manda direto pelo canal de retorno informado pelo cliente
-func trataReq(id int, req Request) {
-	fmt.Println("                                 trataReq ", id)
-	req.ch_ret <- req.v * 2
+
+// Esta é a thread de serviço (worker).
+// Ela fica em um loop eterno, aguardando por requisições no canal de entrada.
+func worker(id int, in chan Request) {
+	fmt.Println("                                 Worker", id, "iniciando.")
+	for req := range in {
+		fmt.Println("                                 Worker", id, "tratando req", req.v)
+		req.ch_ret <- req.v * 2 // Calcula e responde ao cliente
+	}
 }
 
-// servidor que dispara threads de servico
-func servidorConc(in chan Request) {
-	// servidor fica em loop eterno recebendo pedidos e criando um processo concorrente para tratar cada pedido
-	var j int = 0
-	for {
-		j++
-		req := <-in
-		go trataReq(j, req)
+// Servidor que inicializa um pool de workers para tratar as requisições.
+func servidorComPool(in chan Request) {
+	// Cria um pool de workers
+	for i := 0; i < Pool; i++ {
+		go worker(i, in)
 	}
 }
 
 // ------------------------------------
 // main
 func main() {
-	fmt.Println("------ Servidores - criacao dinamica -------")
-	serv_chan := make(chan Request) // CANAL POR ONDE SERVIDOR RECEBE PEDIDOS
-	go servidorConc(serv_chan)      // LANÇA PROCESSO SERVIDOR
-	for i := 0; i < NCL; i++ {      // LANÇA DIVERSOS CLIENTES
+	fmt.Println("------ Servidores com Pool de Workers -------")
+	serv_chan := make(chan Request) // Canal por onde o servidor recebe os pedidos
+	go servidorComPool(serv_chan)   // Lança o processo servidor com o pool
+	for i := 0; i < NCL; i++ {      // Lança diversos clientes
 		go cliente(i, serv_chan)
 	}
-	<-make(chan int)
+	<-make(chan int) // Bloqueia para o programa não terminar
 }
